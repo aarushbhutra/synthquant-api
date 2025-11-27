@@ -98,3 +98,16 @@ pyrightconfig.json
 # Local development
 *.local
 *.bak
+
+# Configuration files with secrets
+config.yml
+config.yaml
+app/config.py
+!config.example.yml
+!config.example.yaml
+!app/config.example.py
+
+# Secrets
+secrets.yml
+secrets.yaml
+*.secret
