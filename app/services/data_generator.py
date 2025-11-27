@@ -23,6 +23,7 @@ from app.models import (
     DatasetCreateResponse,
 )
 from app.store import store, DatasetRecord
+from app.services.event_manager import event_manager
 
 
 def get_frequency_timedelta(frequency: str) -> timedelta:
@@ -210,18 +211,43 @@ def generate_dataset(request: DatasetCreateRequest) -> DatasetCreateResponse:
             "price": prices,
         })
         data_store[asset.symbol] = df
+    
+    # Apply events if any are specified
+    if request.events:
+        data_store = event_manager.apply_events_to_dict(
+            data_store,
+            request.events,
+            price_column="price",
+        )
+    
+    # Generate previews after events are applied
+    asset_previews: List[AssetPreview] = []
+    for asset in request.assets:
+        df = data_store[asset.symbol]
+        # Handle NaN values in preview (from IPO events)
+        preview_prices = df["price"].head(10).tolist()
+        preview_prices = [round(p, 4) if pd.notna(p) else None for p in preview_prices]
         
-        # Create preview (first 10 rows)
         preview = AssetPreview(
             symbol=asset.symbol,
-            timestamps=timestamp_strings[:10],
-            prices=[round(p, 4) for p in prices[:10].tolist()],
+            timestamps=df["timestamp"].head(10).tolist(),
+            prices=preview_prices,
         )
         asset_previews.append(preview)
     
-    # Calculate realism score (average across all assets)
-    all_prices = np.concatenate([data_store[a.symbol]["price"].values for a in request.assets])
-    realism_score = calculate_realism_score(all_prices)
+    # Calculate realism score (average across all assets, ignoring NaN)
+    all_prices = []
+    for a in request.assets:
+        prices_arr = data_store[a.symbol]["price"].values
+        valid_prices = prices_arr[~np.isnan(prices_arr)]
+        if len(valid_prices) > 0:
+            all_prices.append(valid_prices)
+    
+    if all_prices:
+        all_prices = np.concatenate(all_prices)
+        realism_score = calculate_realism_score(all_prices)
+    else:
+        realism_score = 0.0
     
     # Generate dataset ID and store
     dataset_id = store.generate_dataset_id()

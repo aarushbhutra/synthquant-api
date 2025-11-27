@@ -4,6 +4,7 @@ Services package for SynthQuant API.
 
 from app.services.market_profiler import MarketProfiler, market_profiler
 from app.services.generator import SyntheticGenerator, synthetic_generator
+from app.services.event_manager import EventManager, event_manager
 from app.services.data_generator import (
     generate_dataset,
     get_dataset_preview,
@@ -17,6 +18,8 @@ __all__ = [
     "market_profiler",
     "SyntheticGenerator",
     "synthetic_generator",
+    "EventManager",
+    "event_manager",
     "generate_dataset",
     "get_dataset_preview",
     "record_to_metadata",

@@ -29,6 +29,7 @@ from app.services import (
     get_dataset_preview,
     record_to_metadata,
     synthetic_generator,
+    event_manager,
 )
 from app.services.market_profiler import market_profiler
 from app.exceptions import AssetNotFound
@@ -241,7 +242,6 @@ async def create_realistic_dataset(request: RealisticDatasetCreateRequest) -> Da
         created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         
         data_store = {}  # symbol -> DataFrame
-        asset_previews = []
         total_rows = 0
         
         # Process each asset
@@ -281,12 +281,27 @@ async def create_realistic_dataset(request: RealisticDatasetCreateRequest) -> Da
             })
             data_store[asset.symbol] = df
             total_rows += len(df)
+        
+        # Apply events if any are specified
+        if request.events:
+            data_store = event_manager.apply_events_to_dict(
+                data_store,
+                request.events,
+                price_column="price",
+            )
+        
+        # Generate previews after events are applied
+        asset_previews = []
+        for symbol in symbols:
+            df = data_store[symbol]
+            # Handle NaN values in preview (from IPO events)
+            preview_prices = df["price"].head(10).tolist()
+            preview_prices = [round(p, 4) if pd.notna(p) else None for p in preview_prices]
             
-            # Create preview
             preview = AssetPreview(
-                symbol=asset.symbol,
+                symbol=symbol,
                 timestamps=df["timestamp"].head(10).tolist(),
-                prices=[round(p, 4) for p in df["price"].head(10).tolist()],
+                prices=preview_prices,
             )
             asset_previews.append(preview)
         

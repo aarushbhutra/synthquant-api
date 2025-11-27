@@ -4,8 +4,70 @@ Defines all data structures used in the API.
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
+from enum import Enum
+
+
+# ==================== Enums ====================
+
+class EventTypeEnum(str, Enum):
+    """Supported event types for scenario stress testing."""
+    IPO = "ipo"
+    CRASH = "crash"
+    EARNINGS = "earnings"
+
+
+# ==================== Event Models ====================
+
+class EventSpec(BaseModel):
+    """
+    Specification for a market event to inject into synthetic data.
+    
+    Event Types:
+    - ipo: Simulates limited history (NaN before trigger_step)
+    - crash: Gradual price decline over duration_steps
+    - earnings: Instant price gap (jump or drop) at trigger_step
+    """
+    type: EventTypeEnum = Field(
+        ...,
+        description="Event type: 'ipo', 'crash', or 'earnings'"
+    )
+    trigger_step: int = Field(
+        ...,
+        ge=0,
+        description="Row index where the event starts (0-indexed)"
+    )
+    magnitude: Optional[float] = Field(
+        default=None,
+        description="Event magnitude: for crash (0.3 = 30% drop), for earnings (0.1 = +10%, -0.1 = -10%)"
+    )
+    duration: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Duration in steps (only used for crash events)"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "type": "ipo",
+                    "trigger_step": 10,
+                },
+                {
+                    "type": "crash",
+                    "trigger_step": 50,
+                    "magnitude": 0.3,
+                    "duration": 20,
+                },
+                {
+                    "type": "earnings",
+                    "trigger_step": 100,
+                    "magnitude": 0.15,
+                },
+            ]
+        }
 
 
 # ==================== Request Models ====================
@@ -31,6 +93,10 @@ class DatasetCreateRequest(BaseModel):
     frequency: str = Field(default="1h", description="Data frequency (1m, 5m, 15m, 30m, 1h, 4h, 1d)")
     horizon_days: int = Field(..., gt=0, le=365, description="Number of days to simulate")
     seed: int = Field(..., description="Random seed for reproducibility")
+    events: List[EventSpec] = Field(
+        default=[],
+        description="Optional list of market events to inject (IPO, crash, earnings shock)"
+    )
 
 
 class RealisticDatasetCreateRequest(BaseModel):
@@ -40,6 +106,10 @@ class RealisticDatasetCreateRequest(BaseModel):
     frequency: str = Field(default="1h", description="Data frequency (1m, 5m, 15m, 30m, 1h, 4h, 1d)")
     horizon_days: int = Field(..., gt=0, le=365, description="Number of days to simulate")
     seed: Optional[int] = Field(default=None, description="Random seed for reproducibility (optional)")
+    events: List[EventSpec] = Field(
+        default=[],
+        description="Optional list of market events to inject (IPO, crash, earnings shock)"
+    )
 
 
 class ApiKeyVerifyRequest(BaseModel):
@@ -67,7 +137,7 @@ class AssetPreview(BaseModel):
     """Preview data for a single asset."""
     symbol: str
     timestamps: List[str]
-    prices: List[float]
+    prices: List[Optional[float]]  # Can be None for IPO events (pre-IPO rows)
 
 
 class DatasetPreview(BaseModel):
