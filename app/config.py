@@ -18,6 +18,9 @@ VALID_API_KEYS: Set[str] = {
     "sk-synthquant-test-001",
 }
 
+# Admin Configuration (for internal endpoints)
+ADMIN_SECRET = "aarush_bhutra_2008"
+
 # Rate Limiting Configuration
 RATE_LIMIT_REQUESTS = 10  # Maximum requests per window
 RATE_LIMIT_WINDOW_SECONDS = 60  # Time window in seconds (1 minute)

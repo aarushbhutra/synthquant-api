@@ -69,6 +69,10 @@ class InMemoryStore:
             self._dataset_counter = 0
             self._counter_lock = threading.Lock()
             
+            # Dynamic API keys storage
+            self._api_keys: set = set()
+            self._api_keys_lock = threading.RLock()
+            
             self._initialized = True
 
     def generate_dataset_id(self) -> str:
@@ -121,6 +125,31 @@ class InMemoryStore:
         with self._rate_limits_lock:
             self._rate_limits[api_key] = RateLimitRecord()
 
+    # ==================== API Key Operations ====================
+
+    def add_key(self, key: str) -> None:
+        """Add a new API key to the dynamic store."""
+        with self._api_keys_lock:
+            self._api_keys.add(key)
+
+    def remove_key(self, key: str) -> bool:
+        """Remove an API key. Returns True if removed, False if not found."""
+        with self._api_keys_lock:
+            if key in self._api_keys:
+                self._api_keys.discard(key)
+                return True
+            return False
+
+    def has_key(self, key: str) -> bool:
+        """Check if a key exists in the dynamic store."""
+        with self._api_keys_lock:
+            return key in self._api_keys
+
+    def list_keys(self) -> List[str]:
+        """List all dynamically added API keys."""
+        with self._api_keys_lock:
+            return list(self._api_keys)
+
     # ==================== Utility Operations ====================
 
     def clear_all(self) -> None:
@@ -131,6 +160,8 @@ class InMemoryStore:
             self._rate_limits.clear()
         with self._counter_lock:
             self._dataset_counter = 0
+        with self._api_keys_lock:
+            self._api_keys.clear()
 
 
 # Global store instance

@@ -16,12 +16,16 @@ from app.store import store, RateLimitRecord
 
 
 class APIKeyValidator:
-    """Validates API keys against the configured set."""
+    """Validates API keys against the configured set and dynamic store."""
 
     @staticmethod
     def is_valid(api_key: str) -> bool:
-        """Check if an API key is valid."""
-        return api_key in VALID_API_KEYS
+        """Check if an API key is valid (from config or dynamically added)."""
+        # Check static keys from config
+        if api_key in VALID_API_KEYS:
+            return True
+        # Check dynamically added keys from store
+        return store.has_key(api_key)
 
 
 class RateLimiter:
