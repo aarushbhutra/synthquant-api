@@ -1,5 +1,5 @@
 """
-Services module - The Dummy Data Generation Engine.
+Data Generator Service - The Dummy Data Generation Engine.
 Implements Geometric Brownian Motion (GBM) for synthetic price path generation.
 """
 
