@@ -5,7 +5,7 @@ Thread-safe storage for datasets and rate limiting data.
 
 import threading
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 import pandas as pd
 
@@ -25,11 +25,16 @@ class DatasetRecord:
     data: Dict[str, pd.DataFrame]  # symbol -> DataFrame with timestamps and prices
 
 
+def _utc_now() -> datetime:
+    """Return current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
+
+
 @dataclass
 class RateLimitRecord:
     """Tracks rate limiting for an API key."""
     request_count: int = 0
-    window_start: datetime = field(default_factory=datetime.utcnow)
+    window_start: datetime = field(default_factory=_utc_now)
 
 
 class InMemoryStore:

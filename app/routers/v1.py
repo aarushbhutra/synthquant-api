@@ -3,7 +3,7 @@ API Router for v1 endpoints.
 Defines all route handlers for the SynthQuant API.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -47,7 +47,7 @@ async def get_status() -> StatusResponse:
     """
     return StatusResponse(
         service="ok",
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         note="Simulation Mode",
     )
 

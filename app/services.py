@@ -3,7 +3,7 @@ Services module - The Dummy Data Generation Engine.
 Implements Geometric Brownian Motion (GBM) for synthetic price path generation.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 import numpy as np
 import pandas as pd
@@ -183,7 +183,7 @@ def generate_dataset(request: DatasetCreateRequest) -> DatasetCreateResponse:
     dt = 1.0 / steps_per_day  # Time step as fraction of day
     
     # Generate start time (current time, rounded to nearest frequency)
-    start_time = datetime.utcnow().replace(second=0, microsecond=0)
+    start_time = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     
     # Generate timestamps
     timestamps = generate_timestamps(start_time, total_steps, request.frequency)
@@ -225,7 +225,7 @@ def generate_dataset(request: DatasetCreateRequest) -> DatasetCreateResponse:
     
     # Generate dataset ID and store
     dataset_id = store.generate_dataset_id()
-    created_at = datetime.utcnow().isoformat() + "Z"
+    created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     
     record = DatasetRecord(
         dataset_id=dataset_id,

@@ -3,7 +3,7 @@ Security module for API key validation and rate limiting.
 Implements FastAPI dependencies for authentication and throttling.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from fastapi import Header, HTTPException, Depends, status
 
@@ -49,7 +49,7 @@ class RateLimiter:
         Returns:
             Tuple of (is_allowed, remaining_quota, retry_after_seconds)
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = store.get_rate_limit_record(api_key)
         
         # Check if we're in a new window
@@ -80,7 +80,7 @@ class RateLimiter:
         Returns:
             Tuple of (remaining_quota, limit)
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = store.get_rate_limit_record(api_key)
         
         # Check if we're in a new window

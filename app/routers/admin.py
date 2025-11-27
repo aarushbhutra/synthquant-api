@@ -4,7 +4,7 @@ Hidden from public API documentation.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Header, HTTPException, status
 
@@ -62,7 +62,7 @@ async def create_api_key(
     store.add_key(new_key)
     
     # Generate timestamp
-    created_at = datetime.utcnow().isoformat() + "Z"
+    created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     
     return {
         "new_key": new_key,

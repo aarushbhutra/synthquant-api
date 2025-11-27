@@ -5,11 +5,25 @@ A FastAPI-based synthetic market data generation service.
 Uses Geometric Brownian Motion (GBM) to generate realistic price paths.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import APP_NAME, APP_VERSION, APP_DESCRIPTION
 from app.routers import v1, admin
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for startup and shutdown."""
+    # Startup
+    print(f"🚀 {APP_NAME} v{APP_VERSION} starting up...")
+    print("📊 Synthetic market data generation service ready.")
+    print("📖 API documentation available at /docs")
+    yield
+    # Shutdown
+    print(f"👋 {APP_NAME} shutting down...")
+
 
 # Create FastAPI application
 app = FastAPI(
@@ -19,6 +33,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -51,18 +66,3 @@ async def root():
 async def health_check():
     """Simple health check endpoint."""
     return {"status": "healthy"}
-
-
-# Application startup and shutdown events
-@app.on_event("startup")
-async def startup_event():
-    """Application startup handler."""
-    print(f"🚀 {APP_NAME} v{APP_VERSION} starting up...")
-    print("📊 Synthetic market data generation service ready.")
-    print("📖 API documentation available at /docs")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Application shutdown handler."""
-    print(f"👋 {APP_NAME} shutting down...")
