@@ -14,18 +14,21 @@ os.environ.setdefault("INITIAL_API_KEY", "sk-synthquant-test-001")
 from app.main import app
 from app.store import store
 from app.config import VALID_API_KEYS, ADMIN_SECRET
+from app.services.market_profiler import market_profiler
 
 
 @pytest.fixture(scope="function")
 def reset_store():
     """
-    Reset the in-memory store before each test.
+    Reset the in-memory store and market profiler cache before each test.
     Ensures test isolation - state does not leak between tests.
     """
     store.clear_all()
+    market_profiler.clear_cache()
     yield store
     # Cleanup after test (optional, but good practice)
     store.clear_all()
+    market_profiler.clear_cache()
 
 
 @pytest.fixture(scope="function")

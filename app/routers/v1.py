@@ -16,6 +16,8 @@ from app.models import (
     DatasetListResponse,
     DatasetDetailResponse,
     DatasetMetadata,
+    MarketProfileRequest,
+    MarketProfileResponse,
 )
 from app.security import (
     check_rate_limit,
@@ -26,6 +28,8 @@ from app.services import (
     get_dataset_preview,
     record_to_metadata,
 )
+from app.services.market_profiler import market_profiler
+from app.exceptions import AssetNotFound
 from app.store import store
 from app.config import SUPPORTED_FREQUENCIES
 
@@ -177,4 +181,59 @@ async def create_dataset(request: DatasetCreateRequest) -> DatasetCreateResponse
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while generating the dataset: {str(e)}",
+        )
+
+
+# ==================== Debug Endpoints (Temporary) ====================
+
+@router.post(
+    "/debug/profile",
+    response_model=MarketProfileResponse,
+    summary="Profile Market Asset (Debug)",
+    description="Fetch real market data and calculate GBM parameters for a symbol.",
+    dependencies=[Depends(check_rate_limit)],
+    responses={
+        404: {"description": "Asset not found"},
+    },
+)
+async def profile_market_asset(request: MarketProfileRequest) -> MarketProfileResponse:
+    """
+    Debug endpoint to profile a real market asset.
+    
+    Fetches historical data from Yahoo Finance and calculates
+    the statistical parameters (mu, sigma) needed for GBM simulation.
+    
+    Results are cached for 1 hour to reduce API calls.
+    """
+    try:
+        params = market_profiler.get_parameters(
+            symbol=request.symbol,
+            region=request.region,
+        )
+        
+        # Calculate annualized values (252 trading days)
+        annualized_return = params["mu"] * 252
+        annualized_volatility = params["sigma"] * (252 ** 0.5)
+        
+        return MarketProfileResponse(
+            symbol=params["symbol"],
+            region=params["region"],
+            mu=round(params["mu"], 8),
+            sigma=round(params["sigma"], 8),
+            last_price=round(params["last_price"], 2),
+            data_points=params["data_points"],
+            fetched_at=params["fetched_at"],
+            annualized_return=round(annualized_return, 4),
+            annualized_volatility=round(annualized_volatility, 4),
+        )
+        
+    except AssetNotFound as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to profile asset: {str(e)}",
         )

@@ -1,9 +1,12 @@
 """
 Test suite for SynthQuant API.
-Covers public endpoints, admin endpoints, and rate limiting.
+Covers public endpoints, admin endpoints, rate limiting, and market profiler.
 """
 
 import pytest
+from unittest.mock import patch, MagicMock
+import pandas as pd
+import numpy as np
 from fastapi import status
 
 
@@ -335,3 +338,128 @@ class TestRateLimiting:
         assert data["valid"] is True
         assert data["quota_remaining"] == 7  # 10 - 3 = 7
         assert data["limit"] == 10
+
+
+class TestMarketProfiler:
+    """Tests for market profiler debug endpoint."""
+
+    @pytest.fixture
+    def mock_price_series(self):
+        """Generate a mock price series for testing."""
+        np.random.seed(42)
+        dates = pd.date_range(start="2024-01-01", periods=252, freq="D")
+        # Generate realistic-looking prices using random walk
+        returns = np.random.normal(0.0005, 0.02, 252)
+        prices = 100 * np.exp(np.cumsum(returns))
+        return pd.Series(prices, index=dates, name="Close")
+
+    def test_profile_endpoint_without_auth(self, client):
+        """POST /v1/debug/profile without API key should return 401."""
+        response = client.post(
+            "/v1/debug/profile",
+            json={"symbol": "AAPL", "region": "US"}
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_profile_endpoint_with_invalid_region(self, client, valid_api_key):
+        """POST /v1/debug/profile with invalid region should return 422."""
+        response = client.post(
+            "/v1/debug/profile",
+            headers={"X-API-KEY": valid_api_key},
+            json={"symbol": "AAPL", "region": "INVALID"}
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_profile_endpoint_success_mocked(self, client, valid_api_key, mock_price_series):
+        """POST /v1/debug/profile should return market parameters (mocked)."""
+        with patch("app.services.market_profiler.MarketProfiler.fetch_history") as mock_fetch:
+            mock_fetch.return_value = mock_price_series
+            
+            response = client.post(
+                "/v1/debug/profile",
+                headers={"X-API-KEY": valid_api_key},
+                json={"symbol": "AAPL", "region": "US"}
+            )
+            
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            
+            # Verify response structure
+            assert "symbol" in data
+            assert "region" in data
+            assert "mu" in data
+            assert "sigma" in data
+            assert "last_price" in data
+            assert "data_points" in data
+            assert "fetched_at" in data
+            assert "annualized_return" in data
+            assert "annualized_volatility" in data
+            
+            # Verify data types
+            assert isinstance(data["mu"], float)
+            assert isinstance(data["sigma"], float)
+            assert isinstance(data["last_price"], float)
+            assert data["data_points"] == 252
+            
+            # Sigma should be positive
+            assert data["sigma"] > 0
+
+    def test_profile_endpoint_indian_stock_mocked(self, client, valid_api_key, mock_price_series):
+        """POST /v1/debug/profile should handle Indian stocks (mocked)."""
+        with patch("app.services.market_profiler.MarketProfiler.fetch_history") as mock_fetch:
+            mock_fetch.return_value = mock_price_series
+            
+            response = client.post(
+                "/v1/debug/profile",
+                headers={"X-API-KEY": valid_api_key},
+                json={"symbol": "RELIANCE", "region": "IN"}
+            )
+            
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["symbol"] == "RELIANCE"
+            assert data["region"] == "IN"
+
+    def test_profile_endpoint_asset_not_found(self, client, valid_api_key):
+        """POST /v1/debug/profile should return 404 for invalid ticker."""
+        with patch("app.services.market_profiler.MarketProfiler.fetch_history") as mock_fetch:
+            from app.exceptions import AssetNotFound
+            mock_fetch.side_effect = AssetNotFound(
+                symbol="INVALIDTICKER",
+                region="US",
+                message="Asset 'INVALIDTICKER' not found in region 'US'"
+            )
+            
+            response = client.post(
+                "/v1/debug/profile",
+                headers={"X-API-KEY": valid_api_key},
+                json={"symbol": "INVALIDTICKER", "region": "US"}
+            )
+            
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+            assert "not found" in response.json()["detail"].lower()
+
+    def test_profile_caching(self, client, valid_api_key, mock_price_series):
+        """Market profiler should cache results."""
+        with patch("app.services.market_profiler.MarketProfiler.fetch_history") as mock_fetch:
+            mock_fetch.return_value = mock_price_series
+            
+            # First request
+            response1 = client.post(
+                "/v1/debug/profile",
+                headers={"X-API-KEY": valid_api_key},
+                json={"symbol": "CACHE_TEST", "region": "US"}
+            )
+            
+            # Second request (should use cache)
+            response2 = client.post(
+                "/v1/debug/profile",
+                headers={"X-API-KEY": valid_api_key},
+                json={"symbol": "CACHE_TEST", "region": "US"}
+            )
+            
+            assert response1.status_code == status.HTTP_200_OK
+            assert response2.status_code == status.HTTP_200_OK
+            
+            # fetch_history should only be called once due to caching
+            assert mock_fetch.call_count == 1

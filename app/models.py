@@ -103,3 +103,25 @@ class RateLimitExceededResponse(BaseModel):
     """Response when rate limit is exceeded."""
     detail: str = "Rate limit exceeded"
     retry_after_seconds: int
+
+
+# ==================== Market Profiler Models ====================
+
+class MarketProfileRequest(BaseModel):
+    """Request body for market profiling."""
+    symbol: str = Field(..., min_length=1, max_length=20, description="Stock symbol (e.g., 'AAPL', 'RELIANCE')")
+    region: str = Field(default="US", pattern="^(US|IN)$", description="Market region: 'US' or 'IN'")
+
+
+class MarketProfileResponse(BaseModel):
+    """Response for market profiling endpoint."""
+    symbol: str
+    region: str
+    mu: float = Field(..., description="Drift (mean daily log return)")
+    sigma: float = Field(..., description="Volatility (std dev of log returns)")
+    last_price: float = Field(..., description="Most recent closing price")
+    data_points: int = Field(..., description="Number of data points used")
+    fetched_at: str = Field(..., description="Timestamp when data was fetched")
+    annualized_return: float = Field(..., description="Annualized expected return (mu * 252)")
+    annualized_volatility: float = Field(..., description="Annualized volatility (sigma * sqrt(252))")
+

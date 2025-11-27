@@ -35,3 +35,5 @@ DEFAULT_DRIFT = 0.0001  # Small positive drift
 
 # API Base URL (for generating download URLs)
 API_BASE_URL = "http://localhost:8000"
+
+ALPHA_VANTAGE_API_KEY = "OFUJNT9F979K5UBR"
