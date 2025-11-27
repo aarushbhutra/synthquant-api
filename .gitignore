@@ -99,13 +99,16 @@ pyrightconfig.json
 *.local
 *.bak
 
-# Configuration files with secrets
+# Configuration files with secrets (YAML configs only)
 config.yml
 config.yaml
-app/config.py
 !config.example.yml
 !config.example.yaml
-!app/config.example.py
+
+# Local environment overrides
+.env
+.env.local
+*.env.local
 
 # Secrets
 secrets.yml
