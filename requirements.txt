@@ -10,5 +10,6 @@ pydantic>=2.5.0
 numpy>=1.24.0
 pandas>=2.0.0
 
-# Development (optional)
-httpx>=0.25.0  # For testing async endpoints
+# Testing
+pytest>=7.4.0
+httpx>=0.25.0
