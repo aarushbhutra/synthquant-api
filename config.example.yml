@@ -1,0 +1,81 @@
+# =============================================================================
+# SynthQuant API Configuration Template
+# =============================================================================
+# INSTRUCTIONS:
+# 1. Copy this file to `config.yml`
+# 2. Replace all placeholder values with your actual secrets
+# 3. NEVER commit config.yml to version control
+# =============================================================================
+
+# Application Settings
+app:
+  name: "SynthQuant API"
+  version: "1.0.0"
+  description: "Synthetic Market Data Generation Service"
+  base_url: "http://localhost:8000"
+
+# API Keys for authentication
+# Generate secure keys using: python -c "import secrets; print(f'sk-synthquant-{secrets.token_hex(8)}')"
+api_keys:
+  - "<INSERT_API_KEY_1_HERE>"
+  - "<INSERT_API_KEY_2_HERE>"
+  - "<INSERT_API_KEY_3_HERE>"
+
+# Admin Configuration
+# Used for internal/hidden admin endpoints
+# Generate using: python -c "import secrets; print(secrets.token_urlsafe(32))"
+admin:
+  secret: "<INSERT_ADMIN_SECRET_HERE>"
+
+# Rate Limiting
+rate_limiting:
+  requests_per_window: 10
+  window_seconds: 60
+
+# External API Keys
+external_apis:
+  # Alpha Vantage API Key (for real market data)
+  # Get your free key at: https://www.alphavantage.co/support/#api-key
+  alpha_vantage_api_key: "<INSERT_ALPHA_VANTAGE_API_KEY_HERE>"
+  
+  # Yahoo Finance (no key required, uses yfinance library)
+  # yahoo_finance: "no_key_required"
+
+# Data Generation Defaults
+data_generation:
+  default_frequency: "1h"
+  supported_frequencies:
+    - "1m"
+    - "5m"
+    - "15m"
+    - "30m"
+    - "1h"
+    - "4h"
+    - "1d"
+  
+  # GBM (Geometric Brownian Motion) Parameters
+  gbm:
+    default_volatility: 0.02  # 2% daily volatility
+    default_drift: 0.0001     # Small positive drift
+
+# Database Configuration (for future use)
+# database:
+#   host: "<INSERT_DB_HOST_HERE>"
+#   port: 5432
+#   name: "<INSERT_DB_NAME_HERE>"
+#   user: "<INSERT_DB_USER_HERE>"
+#   password: "<INSERT_DB_PASSWORD_HERE>"
+
+# Redis Configuration (for future use)
+# redis:
+#   host: "<INSERT_REDIS_HOST_HERE>"
+#   port: 6379
+#   password: "<INSERT_REDIS_PASSWORD_HERE>"
+
+# =============================================================================
+# SECURITY NOTES:
+# - Never commit real secrets to version control
+# - Use environment variables in production
+# - Rotate secrets regularly
+# - Use a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.) in production
+# =============================================================================
