@@ -16,6 +16,14 @@ class AssetInput(BaseModel):
     start_price: float = Field(..., gt=0, description="Starting price for the asset")
 
 
+class RealAssetInput(BaseModel):
+    """Asset configuration using real market data."""
+    symbol: str = Field(..., min_length=1, max_length=20, description="Stock symbol (e.g., 'AAPL', 'RELIANCE')")
+    region: str = Field(default="US", pattern="^(US|IN)$", description="Market region: 'US' or 'IN'")
+    volatility_multiplier: float = Field(default=1.0, ge=0.1, le=10.0, description="Multiply volatility by this factor")
+    drift_multiplier: float = Field(default=1.0, ge=-5.0, le=5.0, description="Multiply drift by this factor")
+
+
 class DatasetCreateRequest(BaseModel):
     """Request body for creating a new synthetic dataset."""
     project: str = Field(..., min_length=1, max_length=100, description="Project name")
@@ -23,6 +31,15 @@ class DatasetCreateRequest(BaseModel):
     frequency: str = Field(default="1h", description="Data frequency (1m, 5m, 15m, 30m, 1h, 4h, 1d)")
     horizon_days: int = Field(..., gt=0, le=365, description="Number of days to simulate")
     seed: int = Field(..., description="Random seed for reproducibility")
+
+
+class RealisticDatasetCreateRequest(BaseModel):
+    """Request body for creating a synthetic dataset based on real market data."""
+    project: str = Field(..., min_length=1, max_length=100, description="Project name")
+    assets: List[RealAssetInput] = Field(..., min_length=1, description="List of real assets to base simulation on")
+    frequency: str = Field(default="1h", description="Data frequency (1m, 5m, 15m, 30m, 1h, 4h, 1d)")
+    horizon_days: int = Field(..., gt=0, le=365, description="Number of days to simulate")
+    seed: Optional[int] = Field(default=None, description="Random seed for reproducibility (optional)")
 
 
 class ApiKeyVerifyRequest(BaseModel):

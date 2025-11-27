@@ -6,6 +6,8 @@ A modular, lightweight FastAPI backend that serves synthetic market data using G
 
 - **Synthetic Data Generation**: Generate realistic price paths using GBM
 - **Real Market Profiling**: Fetch real stock data to calibrate GBM parameters
+- **Synthesis Engine**: Generate synthetic data calibrated to real market behavior
+- **Volatility/Drift Control**: Fine-tune synthetic data with multipliers
 - **Deterministic Output**: Same seed produces identical results
 - **API Key Authentication**: Header-based authentication with `X-API-KEY`
 - **Rate Limiting**: 10 requests per minute per API key
@@ -14,26 +16,30 @@ A modular, lightweight FastAPI backend that serves synthetic market data using G
 - **Admin Interface**: Hidden endpoint for dynamic API key creation
 - **CI/CD Pipeline**: Automated testing with GitHub Actions
 - **Multi-Market Support**: US and Indian (NSE) stock markets via yfinance
+- **Multiple Frequencies**: Support for 1m, 5m, 15m, 30m, 1h, 4h, 1d intervals
 
 ## 📁 Project Structure
 
 ```
 /app
-  ├── main.py            # Entry point, app initialization
+  ├── main.py            # Entry point, app initialization with lifespan
   ├── config.py          # Settings, API Keys, Constants
   ├── models.py          # Pydantic schemas (Request/Response objects)
   ├── store.py           # In-memory database singleton
   ├── security.py        # API Key validation & Rate Limiting logic
   ├── exceptions.py      # Custom exception classes
-  ├── services.py        # The "Engine" (Dummy Data Generation logic)
   ├── services/
-  │   └── market_profiler.py  # Real market data fetching & analysis
+  │   ├── __init__.py        # Service exports
+  │   ├── data_generator.py  # Basic GBM data generation
+  │   ├── market_profiler.py # Real market data fetching via yfinance
+  │   └── generator.py       # Synthesis engine (realistic GBM generator)
   └── routers/
       ├── v1.py          # API Route definitions
       └── admin.py       # Hidden admin endpoints
 /tests
   ├── conftest.py        # Pytest fixtures
-  └── test_main.py       # Test suite
+  ├── test_main.py       # Main test suite
+  └── test_generator.py  # Synthesis engine tests
 /.github
   └── workflows/
       └── test.yaml      # CI pipeline
@@ -192,6 +198,51 @@ Response:
 ```
 
 ### Debug Endpoints (Require X-API-KEY)
+
+#### POST /v1/datasets/create/realistic
+Create a synthetic dataset calibrated to real market parameters. This endpoint fetches real market data from Yahoo Finance and uses the statistical properties (mu, sigma, last_price) to generate synthetic data that mimics real asset behavior.
+
+```bash
+curl -X POST "http://localhost:8000/v1/datasets/create/realistic" \
+  -H "X-API-KEY: sk-synthquant-dev-001" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project": "realistic-backtest",
+    "assets": [
+      {
+        "symbol": "AAPL",
+        "region": "US",
+        "volatility_multiplier": 1.0,
+        "drift_multiplier": 1.0
+      },
+      {
+        "symbol": "RELIANCE",
+        "region": "IN",
+        "volatility_multiplier": 1.5,
+        "drift_multiplier": 0.8
+      }
+    ],
+    "frequency": "1h",
+    "horizon_days": 7,
+    "seed": 42
+  }'
+```
+
+**Parameters:**
+- `volatility_multiplier`: Scale real volatility (2.0 = 2x more volatile)
+- `drift_multiplier`: Scale real drift (0.5 = half the trend)
+- `region`: "US" for US stocks, "IN" for Indian NSE stocks
+
+Response:
+```json
+{
+  "id": "abc123-...",
+  "project": "realistic-backtest",
+  "created_at": "2024-01-15T10:30:00Z",
+  "row_count": 337,
+  "preview": [...]
+}
+```
 
 #### POST /v1/debug/profile
 Profile a real market asset to get GBM parameters. Supports US and Indian (NSE) markets.
