@@ -11,6 +11,12 @@ APP_NAME = "SynthQuant API"
 APP_VERSION = "1.0.0"
 APP_DESCRIPTION = "Synthetic Market Data Generation Service"
 
+# Database Configuration (Supabase PostgreSQL)
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:password@localhost:5432/synthquant"
+)
+
 # API Key Configuration
 # Load from environment variable or use defaults for development
 _initial_api_key = os.environ.get("INITIAL_API_KEY", "")

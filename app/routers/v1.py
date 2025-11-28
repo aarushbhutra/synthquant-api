@@ -131,6 +131,53 @@ async def get_dataset(dataset_id: str) -> DatasetDetailResponse:
     )
 
 
+@router.get(
+    "/datasets/{dataset_id}/download",
+    summary="Download Full Dataset",
+    description="Download the complete dataset as JSON with all price data.",
+    dependencies=[Depends(check_rate_limit)],
+    responses={
+        404: {"description": "Dataset not found"},
+    },
+)
+async def download_dataset(dataset_id: str):
+    """
+    Download full dataset with all price data.
+    Returns JSON with complete timestamps and prices for all assets.
+    """
+    record = store.get_dataset(dataset_id)
+    
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset '{dataset_id}' not found.",
+        )
+    
+    # Build full data response
+    assets_data = []
+    for symbol, df in record.data.items():
+        # Convert DataFrame to lists, handling NaN values
+        prices = df["price"].tolist()
+        prices = [round(p, 4) if not (isinstance(p, float) and p != p) else None for p in prices]
+        
+        assets_data.append({
+            "symbol": symbol,
+            "timestamps": df["timestamp"].tolist(),
+            "prices": prices,
+        })
+    
+    return {
+        "dataset_id": record.dataset_id,
+        "project": record.project,
+        "frequency": record.frequency,
+        "horizon_days": record.horizon_days,
+        "total_rows": record.total_rows,
+        "created_at": record.created_at,
+        "realism_score": record.realism_score,
+        "assets": assets_data,
+    }
+
+
 @router.post(
     "/datasets/create",
     response_model=DatasetCreateResponse,

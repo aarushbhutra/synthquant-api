@@ -142,13 +142,16 @@ class EventManager:
         magnitude: float,
         duration_steps: int,
         price_column: str,
+        seed: int = None,
     ) -> pd.DataFrame:
         """
-        Apply a market crash event - gradual price decline over duration.
+        Apply a realistic market crash event with true randomness.
         
-        The crash applies a linear decay from the trigger point, reaching
-        the full magnitude drop by (trigger_step + duration_steps).
-        The drop "sticks" - all prices after the crash period are rebased.
+        Simulates realistic crash behavior with:
+        - Random walk downward with high volatility
+        - Small occasional bounces (1-3% max)
+        - Varying intensity of drops
+        - Different shape each time (unless seed is fixed)
         
         Args:
             df: DataFrame with price data
@@ -156,15 +159,15 @@ class EventManager:
             magnitude: Total drop as decimal (0.3 = 30% drop)
             duration_steps: Number of steps over which the crash occurs
             price_column: Name of the price column
+            seed: Optional seed for reproducibility (None = random each time)
         
         Returns:
-            Modified DataFrame with crash applied
+            Modified DataFrame with realistic crash applied
         """
         if trigger_step < 0 or trigger_step >= len(df):
             return df
         
         if magnitude <= 0 or magnitude >= 1:
-            # Invalid magnitude (must be between 0 and 1 exclusive)
             magnitude = min(0.99, max(0.01, magnitude))
         
         if duration_steps < 1:
@@ -174,20 +177,77 @@ class EventManager:
         prices = result[price_column].values.copy()
         n = len(prices)
         
-        # Calculate the crash end point
+        # Use random seed - if None, each run is different
+        # Use timestamp-based seed for true randomness when seed not provided
+        if seed is None:
+            import time
+            seed = int(time.time() * 1000) % (2**31)
+        rng = np.random.RandomState(seed=seed)
+        
         crash_end = min(trigger_step + duration_steps, n)
+        actual_duration = crash_end - trigger_step
         
-        # Apply linear decay during crash period
-        # multiplier goes from 1.0 at trigger_step to (1-magnitude) at crash_end
-        for i in range(trigger_step, crash_end):
-            progress = (i - trigger_step + 1) / duration_steps
-            multiplier = 1.0 - (magnitude * progress)
-            prices[i] = prices[i] * multiplier
+        if actual_duration < 1:
+            return result
         
-        # Rebase all prices after crash - apply full magnitude
+        # ===== STOCHASTIC CRASH MODEL =====
+        # Generate random returns that sum to approximately -magnitude
+        
+        # Average return needed per step to achieve magnitude drop
+        avg_return = -magnitude / actual_duration
+        
+        # High volatility during crashes (3-5x normal market vol)
+        crash_volatility = abs(avg_return) * rng.uniform(2.5, 4.0)
+        
+        # Generate random returns with downward drift
+        returns = []
+        for i in range(actual_duration):
+            # Progress through crash (0 to 1)
+            progress = i / actual_duration
+            
+            # Drift becomes less negative over time (panic subsides)
+            # Early: strong negative drift, Later: weaker drift
+            drift_multiplier = 1.5 - progress * 0.8  # 1.5 -> 0.7
+            current_drift = avg_return * drift_multiplier
+            
+            # Volatility also decreases slightly over time
+            vol_multiplier = 1.3 - progress * 0.4  # 1.3 -> 0.9
+            current_vol = crash_volatility * vol_multiplier
+            
+            # Generate random return (normal distribution with drift)
+            ret = rng.normal(current_drift, current_vol)
+            
+            # Clamp extreme moves (no single step > 15% drop or > 5% gain)
+            ret = max(ret, -0.15)
+            ret = min(ret, 0.05)
+            
+            returns.append(ret)
+        
+        # Convert returns to price multipliers
+        returns = np.array(returns)
+        
+        # Adjust returns to hit target magnitude approximately
+        cumulative = np.cumsum(returns)
+        final_cumulative = cumulative[-1]
+        target_cumulative = -magnitude
+        
+        # Scale returns to hit target (but keep randomness)
+        if abs(final_cumulative) > 0.01:
+            # Blend: 70% scaled to target, 30% original randomness
+            scale_factor = target_cumulative / final_cumulative
+            returns = returns * (0.7 * scale_factor + 0.3)
+        
+        # Apply returns to prices during crash
+        cumulative_mult = 1.0
+        for i in range(actual_duration):
+            cumulative_mult *= (1 + returns[i])
+            # Don't let it go below the target
+            cumulative_mult = max(cumulative_mult, 1.0 - magnitude * 1.1)
+            prices[trigger_step + i] = prices[trigger_step + i] * cumulative_mult
+        
+        # Rebase all prices after crash
         final_multiplier = 1.0 - magnitude
         if crash_end < n:
-            # Calculate the ratio at crash_end to maintain continuity
             prices[crash_end:] = prices[crash_end:] * final_multiplier
         
         result[price_column] = prices

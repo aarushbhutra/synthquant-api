@@ -100,7 +100,7 @@ class TestEventManagerCrash:
         assert final_price > 65.0
     
     def test_crash_applies_gradual_decline(self, sample_df):
-        """Test that crash applies gradual decline during duration."""
+        """Test that crash applies overall decline during duration (with realistic volatility)."""
         event = EventSpec(
             type=EventTypeEnum.CRASH,
             trigger_step=5,
@@ -110,10 +110,15 @@ class TestEventManagerCrash:
         
         result = event_manager.apply_events(sample_df, [event], price_column="price")
         
-        # Prices during crash should be declining
-        crash_prices = result["price"].iloc[5:15].tolist()
-        for i in range(len(crash_prices) - 1):
-            assert crash_prices[i] > crash_prices[i + 1], f"Price should decline at step {i}"
+        # With realistic crashes, we expect net decline but allow for bounces
+        # So we check that the END of crash is lower than the START
+        crash_start_price = result["price"].iloc[5]
+        crash_end_price = result["price"].iloc[14]
+        
+        # Overall trend should be down
+        assert crash_end_price < crash_start_price, "Crash should result in net decline"
+        # Should be significantly down (at least 30% of the 50% target)
+        assert crash_end_price < crash_start_price * 0.7, "Crash should cause significant decline"
     
     def test_crash_sticks_after_duration(self, sample_df):
         """Test that the crash 'sticks' - prices stay low after crash ends."""
