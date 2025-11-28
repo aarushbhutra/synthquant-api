@@ -19,4 +19,4 @@ EXPOSE 8000
 
 # Run uvicorn when the container launches
 # host 0.0.0.0 is required for Docker containers to be accessible
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
